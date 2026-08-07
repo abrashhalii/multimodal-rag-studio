@@ -27,9 +27,10 @@ import config
 
 ARABIC_RE = re.compile(r"^\s*(\d{1,4})\s*$")
 ROMAN_RE = re.compile(r"^\s*([ivxlcdm]{1,8})\s*$", re.I)
+
 # Back-of-book index rows look like "while statement, 71" or "term, 71, 194".
-# They are dense keyword lists, which makes them match almost any technical
-# query while being useless as an answer - the worst combination for retrieval.
+# Dense keyword lists: they match almost any technical query while being useless
+# as an answer - the worst combination for retrieval.
 INDEX_ENTRY_RE = re.compile(
     r"^.{2,70}?,\s*\d{1,4}(\s*[-\u2013]\s*\d{1,4})?(\s*,\s*\d{1,4})*\s*$")
 
@@ -39,6 +40,7 @@ def _index_ratio(lines: List[str]) -> float:
     if len(lines) < 8:
         return 0.0
     return sum(1 for l in lines if INDEX_ENTRY_RE.match(l.strip())) / len(lines)
+
 
 # ---------------------------------------------------------------- data model
 @dataclass
@@ -51,6 +53,8 @@ class PageRecord:
     folio: Optional[str] = None       # the number actually found in the margin
     is_front_matter: bool = False
     is_index: bool = False            # back-of-book index page
+    chapter_id: int = -1              # index into BookIndex.chapters, -1 = none
+    chapter_title: Optional[str] = None
     source: str = "text"              # "text" | "ocr" | "vision"
 
     @property
@@ -73,6 +77,8 @@ class BookIndex:
     offset: int                       # printed_page + offset == pdf_index (body only)
     pages: List[PageRecord]
     margin_note: str = "defaults"     # how the header/footer bands were derived
+    chapters: List[dict] = field(default_factory=list)   # {id,title,start,end}
+    chapter_method: str = "none"      # pdf_outline | heading_regex | none
 
     # ---- lookups -------------------------------------------------------
     def by_printed(self, printed) -> Optional[PageRecord]:
@@ -93,6 +99,31 @@ class BookIndex:
 
     def body_pages(self) -> List[PageRecord]:
         return [p for p in self.pages if not p.is_front_matter]
+
+    def chapter_pages(self, chapter_id: int) -> List[PageRecord]:
+        return [p for p in self.pages if p.chapter_id == chapter_id]
+
+    def find_chapter(self, needle: str) -> Optional[dict]:
+        """Match 'IV', '4', 'Iteration' against chapter titles."""
+        n = str(needle).strip().lower()
+        for c in self.chapters:
+            t = c["title"].lower()
+            if n and (f"chapter {n}." in t or f"chapter {n} " in t
+                      or t.startswith(f"chapter {n}") or n in t):
+                return c
+        # roman <-> arabic
+        romans = ["i", "ii", "iii", "iv", "v", "vi", "vii", "viii", "ix", "x",
+                  "xi", "xii", "xiii", "xiv", "xv", "xvi", "xvii", "xviii",
+                  "xix", "xx", "xxi", "xxii", "xxiii", "xxiv", "xxv", "xxvi",
+                  "xxvii", "xxviii", "xxix", "xxx"]
+        if n.isdigit() and 1 <= int(n) <= len(romans):
+            return self.find_chapter(romans[int(n) - 1])
+        if n in romans:
+            return self.find_chapter(str(romans.index(n) + 1))
+        return None
+
+    def chapter_text(self, chapter_id: int) -> str:
+        return "\n".join(p.text for p in self.chapter_pages(chapter_id) if p.lines)
 
     # ---- persistence ---------------------------------------------------
     def path(self) -> str:
@@ -241,6 +272,50 @@ def _labels_from_catalog(path: str) -> Optional[List[str]]:
     return None
 
 
+CHAPTER_HEADING_RE = re.compile(
+    r"^\s*(chapter|part|section)\s+([0-9]{1,3}|[ivxlcdm]{1,8})\b", re.I)
+
+
+def _chapters_from_outline(doc, total: int) -> List[dict]:
+    """Preferred: read the PDF's own bookmarks. Deterministic, no guessing."""
+    try:
+        toc = doc.get_toc()
+    except Exception:
+        return []
+    if not toc:
+        return []
+
+    marks = []
+    for entry in toc:
+        level, title, page1 = entry[0], entry[1], entry[2]
+        if level != 1 or page1 < 1:
+            continue
+        if not CHAPTER_HEADING_RE.match(title) and not title.lower().startswith("note"):
+            continue                      # skip Title Page / Contents / Index
+        marks.append((title.strip(), page1 - 1))
+
+    chapters = []
+    for i, (title, start) in enumerate(marks):
+        end = marks[i + 1][1] - 1 if i + 1 < len(marks) else total - 1
+        chapters.append({"id": i, "title": title, "start": start, "end": end})
+    return chapters
+
+
+def _chapters_from_headings(raw_pages) -> List[dict]:
+    """Fallback: a page whose first lines announce a chapter starts one."""
+    marks = []
+    for p in raw_pages:
+        for ln in p["lines"][:3]:
+            if CHAPTER_HEADING_RE.match(ln.strip()):
+                marks.append((ln.strip()[:80], p["pdf_index"]))
+                break
+    chapters = []
+    for i, (title, start) in enumerate(marks):
+        end = marks[i + 1][1] - 1 if i + 1 < len(marks) else raw_pages[-1]["pdf_index"]
+        chapters.append({"id": i, "title": title, "start": start, "end": end})
+    return chapters
+
+
 def build_index(file_path: str, book_type: str = "coding") -> BookIndex:
     """Extract every page's lines and resolve its printed page number."""
     doc = fitz.open(file_path)
@@ -254,6 +329,8 @@ def build_index(file_path: str, book_type: str = "coding") -> BookIndex:
         page = doc[i]
         heights.append(page.rect.height)
         pages_lines.append(_lines_with_geometry(page))
+
+    outline_chapters = _chapters_from_outline(doc, total)
     doc.close()
 
     # calibrate the margin bands from where this book prints its folio
@@ -318,6 +395,18 @@ def build_index(file_path: str, book_type: str = "coding") -> BookIndex:
             source="text",
         ))
 
+    # ---- chapters: outline first, heading regex as fallback ----------
+    if outline_chapters:
+        chapters, chapter_method = outline_chapters, "pdf_outline"
+    else:
+        chapters = _chapters_from_headings(raw_pages)
+        chapter_method = "heading_regex" if chapters else "none"
+
+    for c in chapters:
+        for p in pages[c["start"]:c["end"] + 1]:
+            p.chapter_id = c["id"]
+            p.chapter_title = c["title"]
+
     idx = BookIndex(
         book_type=book_type,
         filename=os.path.basename(file_path),
@@ -326,6 +415,8 @@ def build_index(file_path: str, book_type: str = "coding") -> BookIndex:
         offset=offset,
         pages=pages,
         margin_note=margin_note,
+        chapters=chapters,
+        chapter_method=chapter_method,
     )
     idx.save()
     return idx
@@ -341,6 +432,7 @@ def index_report(idx: BookIndex) -> str:
         f"({idx.page_count - len(body)} front matter, {len(body)} body)",
         f"  page numbering  : {idx.label_method}",
         f"  margin bands    : {idx.margin_note}",
+        f"  chapters        : {len(idx.chapters)} ({idx.chapter_method})",
         f"  offset          : printed page N  ->  pdf index N+{idx.offset} (0-based)",
     ]
     if body:

@@ -82,6 +82,20 @@ OLLAMA_BASE_URL = _get("OLLAMA_BASE_URL", "http://localhost:11434")
 LLM_TEMPERATURE = _float("LLM_TEMPERATURE", 0.1)
 LLM_MAX_TOKENS = _int("LLM_MAX_TOKENS", 2048)
 
+# Free-tier ceiling for the chosen model. Everything outbound is paced to this.
+LLM_RPM = _int("LLM_RPM", 15)
+RATE_LIMIT_SAFETY = _float("RATE_LIMIT_SAFETY", 0.7)   # run at 70% of the cap
+
+# ---------------------------------------------------------------- summarisation
+SUMMARY_CHAPTER_WORDS = _int("SUMMARY_CHAPTER_WORDS", 220)
+SUMMARY_BOOK_WORDS = _int("SUMMARY_BOOK_WORDS", 500)
+SUMMARY_MAX_CHAPTER_CHARS = _int("SUMMARY_MAX_CHAPTER_CHARS", 60000)
+BUILD_SUMMARIES_ON_INGEST = _bool("BUILD_SUMMARIES_ON_INGEST", False)
+
+# ---------------------------------------------------------------- memory
+HISTORY_TURNS = _int("HISTORY_TURNS", 6)
+REWRITE_FOLLOWUPS = _bool("REWRITE_FOLLOWUPS", True)
+
 # ---------------------------------------------------------------- server
 HOST = _get("HOST", "0.0.0.0")
 PORT = _int("PORT", 8000)

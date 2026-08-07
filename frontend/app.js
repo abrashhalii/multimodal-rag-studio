@@ -24,11 +24,27 @@ const defaultWelcome = `
     </div>
 `;
 
+// BUG 3 (Amnesia): history is tracked PER MODE. Each book is its own
+// conversation - carrying novel turns into the coding tab would poison both the
+// prompt and the query rewriter.
 const modeStates = {
-    coding: { chatHtml: defaultWelcome, successMsg: '' },
-    novel: { chatHtml: defaultWelcome, successMsg: '' },
-    manga: { chatHtml: defaultWelcome, successMsg: '' }
+    coding: { chatHtml: defaultWelcome, successMsg: '', history: [] },
+    novel:  { chatHtml: defaultWelcome, successMsg: '', history: [] },
+    manga:  { chatHtml: defaultWelcome, successMsg: '', history: [] }
 };
+
+// How many turns to send. The backend clips again on its side.
+const HISTORY_LIMIT = 12;
+
+function getHistory() {
+    return modeStates[currentMode].history;
+}
+
+function pushHistory(role, content) {
+    const h = modeStates[currentMode].history;
+    h.push({ role: role, content: content });
+    while (h.length > HISTORY_LIMIT) h.shift();
+}
 
 // Function to switch modes
 window.setMode = function(mode) {
@@ -208,10 +224,15 @@ async function sendMessage() {
             headers: {
                 'Content-Type': 'application/json'
             },
-            // INTERN CHALLENGE 3: Amnesia
-            // Right now we only send the current message.
-            // How can you keep track of `chatHistory` and send it to the backend?
-            body: JSON.stringify({ message: text, book_type: currentMode })
+            // BUG 3 FIXED: send the prior turns alongside the new message.
+            // Sent BEFORE the current message is appended, so the backend sees
+            // history and question as separate things rather than the question
+            // duplicated at the end of its own context.
+            body: JSON.stringify({
+                message: text,
+                book_type: currentMode,
+                history: getHistory()
+            })
         });
 
         const data = await response.json();
@@ -223,6 +244,10 @@ async function sendMessage() {
             addMessage("❌ Error: " + data.error);
         } else {
             addMessage(data.answer);
+            // Record the exchange only once it succeeded - a failed request
+            // must not leave a dangling user turn with no answer after it.
+            pushHistory('user', text);
+            pushHistory('assistant', data.answer);
         }
     } catch (error) {
         document.getElementById(loadingId).remove();

@@ -37,46 +37,32 @@ from page_index import BookIndex, PageRecord, build_index, index_report
 _embeddings = None
 
 
-_embeddings = None
-
-
-class _BGEQueryEmbeddings:
-    """BGE models want an instruction prefix on QUERIES only, never on documents.
-
-    Older LangChain shipped HuggingFaceBgeEmbeddings for this; newer versions
-    deprecate langchain-community entirely. Doing it by hand is four lines and
-    removes a dependency on which LangChain version happens to be installed.
-    """
-
-    QUERY_PREFIX = "Represent this sentence for searching relevant passages: "
-
-    def __init__(self, inner):
-        self._inner = inner
-
-    def embed_documents(self, texts):
-        return self._inner.embed_documents(texts)
-
-    def embed_query(self, text):
-        return self._inner.embed_query(self.QUERY_PREFIX + text)
-
-
 def get_embeddings():
     """Loaded once, lazily - the model download happens on first use."""
     global _embeddings
     if _embeddings is None:
-        from langchain_huggingface import HuggingFaceEmbeddings
-
         model = config.EMBEDDING_MODEL
-        base = HuggingFaceEmbeddings(
-            model_name=model,
-            model_kwargs={"device": config.EMBEDDING_DEVICE},
-            encode_kwargs={
-                "batch_size": config.EMBEDDING_BATCH_SIZE,
-                "normalize_embeddings": True,
-            },
-        )
-        _embeddings = (_BGEQueryEmbeddings(base)
-                       if model.lower().startswith("baai/bge") else base)
+        model_kwargs = {"device": config.EMBEDDING_DEVICE}
+        encode_kwargs = {
+            "batch_size": config.EMBEDDING_BATCH_SIZE,
+            "normalize_embeddings": True,
+        }
+        if model.lower().startswith("baai/bge"):
+            # BGE models expect an instruction prefix on the QUERY side only.
+            from langchain_community.embeddings import HuggingFaceBgeEmbeddings
+            _embeddings = HuggingFaceBgeEmbeddings(
+                model_name=model,
+                model_kwargs=model_kwargs,
+                encode_kwargs=encode_kwargs,
+                query_instruction="Represent this sentence for searching relevant passages: ",
+            )
+        else:
+            from langchain_huggingface import HuggingFaceEmbeddings
+            _embeddings = HuggingFaceEmbeddings(
+                model_name=model,
+                model_kwargs=model_kwargs,
+                encode_kwargs=encode_kwargs,
+            )
     return _embeddings
 
 
@@ -107,14 +93,8 @@ def chunk_page(page: PageRecord, book_type: str, filename: str) -> List[Document
         )
 
         chunks.append(Document(
-            # Embed the BODY ONLY. The location header is identical boilerplate
-            # in every chunk - embedding it drags all vectors toward a shared
-            # centroid and lets 3-line front-matter chunks match any query.
-            # It is re-attached at retrieval time from metadata, so the LLM
-            # still sees it and can still cite the page.
-            page_content=body,
+            page_content=f"{header}\n{body}",
             metadata={
-                "location_header": header,
                 "book_type": book_type,
                 "filename": filename,
                 "pdf_index": page.pdf_index,
@@ -126,6 +106,8 @@ def chunk_page(page: PageRecord, book_type: str, filename: str) -> List[Document
                 "line_end": last_line,
                 "is_front_matter": page.is_front_matter,
                 "is_index": page.is_index,
+                "chapter_id": page.chapter_id,
+                "chapter_title": page.chapter_title or "",
                 "source": page.source,
             },
         ))
