@@ -1,0 +1,29 @@
+# secrets
+.env
+*.env
+!.env.example
+
+# python
+venv/
+__pycache__/
+*.pyc
+
+# generated data — contains full extracted book text (copyright)
+backend/chroma_db/
+backend/page_index/
+backend/temp/
+backend/cache/
+
+# source books — copyrighted, never commit
+*.pdf
+*.cbz
+*.cbr
+Books/
+
+# editor / os
+.vscode/
+.DS_Store
+Thumbs.db
+
+# instructor leftover
+backend/debug.json

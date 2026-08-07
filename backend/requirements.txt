@@ -1,0 +1,33 @@
+# --- web -------------------------------------------------------------
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
+
+# --- langchain -------------------------------------------------------
+langchain
+langchain-core
+langchain-community
+langchain-text-splitters
+langchain-huggingface
+langchain-chroma
+
+# --- embeddings / vector store ---------------------------------------
+sentence-transformers
+chromadb
+
+# --- pdf --------------------------------------------------------------
+pymupdf
+pypdf
+
+# --- llm providers (both installed so you can switch in .env) ---------
+langchain-google-genai
+langchain-ollama
+
+# --- day 4 enhancements ----------------------------------------------
+rank-bm25
+
+# --- pdf --------------------------------------------------------------
+pymupdf
+pypdf
+pillow
