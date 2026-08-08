@@ -316,6 +316,51 @@ def _chapters_from_headings(raw_pages) -> List[dict]:
     return chapters
 
 
+def build_index_from_vision(file_path: str, book_type: str, result: dict) -> BookIndex:
+    """Build the page index for a comic from vision output instead of a text layer.
+
+    Comics have no embedded text and no printed folios, so:
+      * printed page number == sequential position (documented, not guessed)
+      * every "line" is one extracted text item, which means page+line queries
+        work on the comic exactly as they do on the two text books
+    """
+    hashes, cache = result["hashes"], result["cache"]
+    pages = []
+    for idx in sorted(hashes):
+        entry = cache.get(hashes[idx], {})
+        items = entry.get("items", [])
+        pages.append(PageRecord(
+            pdf_index=idx,
+            printed_page=str(idx + 1),
+            lines=page_lines_for(items),
+            header=None,
+            footer=None,
+            folio=None,
+            is_front_matter=False,
+            is_index=False,
+            source="vision",
+        ))
+
+    idx_obj = BookIndex(
+        book_type=book_type,
+        filename=os.path.basename(file_path),
+        page_count=len(pages),
+        label_method="sequential_image_pages",
+        offset=0,
+        pages=pages,
+        margin_note="n/a (image pages)",
+        chapters=[],
+        chapter_method="none",
+    )
+    idx_obj.save()
+    return idx_obj
+
+
+def page_lines_for(items):
+    import vision
+    return vision.page_lines(items, include_sfx=True)
+
+
 def build_index(file_path: str, book_type: str = "coding") -> BookIndex:
     """Extract every page's lines and resolve its printed page number."""
     doc = fitz.open(file_path)

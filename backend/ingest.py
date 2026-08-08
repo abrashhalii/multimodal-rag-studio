@@ -106,6 +106,9 @@ def chunk_page(page: PageRecord, book_type: str, filename: str) -> List[Document
                 "line_end": last_line,
                 "is_front_matter": page.is_front_matter,
                 "is_index": page.is_index,
+                "is_sfx_only": bool(page.source == "vision" and page.lines
+                                    and all(l.startswith("[sfx]")
+                                            for l in page.lines)),
                 "chapter_id": page.chapter_id,
                 "chapter_title": page.chapter_title or "",
                 "source": page.source,
@@ -145,9 +148,16 @@ def reset_collection(book_type: str) -> None:
         pass
 
 
-def ingest_pdf(file_path: str, book_type: str = "coding") -> dict:
+def ingest_pdf(file_path: str, book_type: str = "coding",
+               force_vision: bool = False) -> dict:
     """Full pipeline: extract -> index -> chunk -> embed -> store."""
-    idx = build_index(file_path, book_type)
+    if book_type == "manga":
+        import vision
+        from page_index import build_index_from_vision
+        result = vision.extract_pdf(file_path, book_type, force=force_vision)
+        idx = build_index_from_vision(file_path, book_type, result)
+    else:
+        idx = build_index(file_path, book_type)
     docs = build_documents(idx)
 
     reset_collection(book_type)

@@ -48,9 +48,24 @@ import os
 import re
 import sys
 import zipfile
+from collections import Counter
 from typing import List, Optional, Tuple
 
 from PIL import Image
+
+# rarfile shells out to UnRAR.exe. It searches PATH, which on Windows usually
+# does not include WinRAR's install directory - so point it at the binary
+# directly rather than depending on environment state.
+try:
+    import rarfile as _rarfile
+    for _p in (r"C:\Program Files\WinRAR\UnRAR.exe",
+               r"C:\Program Files (x86)\WinRAR\UnRAR.exe",
+               r"C:\Program Files\WinRAR\Rar.exe"):
+        if os.path.exists(_p):
+            _rarfile.UNRAR_TOOL = _p
+            break
+except ImportError:
+    pass
 
 Image.MAX_IMAGE_PIXELS = None
 
@@ -87,6 +102,41 @@ def read_archive(path: str) -> List[Tuple[str, bytes]]:
     imgs = [n for n in names if n.lower().endswith(IMAGE_EXT)]
     imgs.sort(key=lambda n: n.lower())
     return [(n, reader(n)) for n in imgs]
+
+
+def _stem(member: str) -> str:
+    """Filename with the trailing page number removed: the release's naming stem."""
+    base = os.path.splitext(os.path.basename(member))[0]
+    base = re.sub(r"\s*\(.*?\)\s*$", "", base).strip()
+    # Only an UNDERSCORE joins a spread's two page numbers. Allowing a hyphen
+    # here makes "Alpha 01-005" strip as "01-005" while "Alpha 01-002_003"
+    # strips as "002_003", giving two different stems for the same issue - so
+    # every spread would look like a foreign file.
+    return re.sub(r"\d{1,4}[a-z]?(?:_\d{1,4})?$", "", base).strip().lower()
+
+
+def drop_foreign_files(members):
+    """Remove images that are not pages of this issue.
+
+    Scene releases often bundle an advert banner for the release group - e.g.
+    'zzZone2.jpg', landscape, sorting last. It is not a page, but it IS an image
+    with a number in the name, so it survives every naive filter and lands in
+    the PDF as two spurious split pages.
+
+    Rather than blacklist particular groups, key off the naming stem: real pages
+    all share one ('Astonishing X-Men (1995) 001-'), junk does not. Self-
+    calibrating, and it generalises to release groups we have not seen.
+    """
+    if len(members) < 4:
+        return members, []
+    stems = Counter(_stem(n) for n, _ in members)
+    dominant, count = stems.most_common(1)[0]
+    if count < len(members) * 0.6:
+        return members, []                    # no clear convention; keep everything
+    keep, dropped = [], []
+    for name, blob in members:
+        (keep if _stem(name) == dominant else dropped).append((name, blob))
+    return keep, [n for n, _ in dropped]
 
 
 def looks_like_cover(member: str) -> bool:
@@ -161,9 +211,13 @@ def convert(inputs: List[str], out_pdf: str, max_edge: int, quality: int,
 
     for src in inputs:
         members = read_archive(src)
+        members, foreign = drop_foreign_files(members)
         issue = os.path.splitext(os.path.basename(src))[0]
         print(f"\n{issue}")
         print(f"  {len(members)} images")
+        if foreign:
+            print(f"  non-page files : {len(foreign)} dropped "
+                  f"({', '.join(os.path.basename(f) for f in foreign[:3])})")
 
         skipped = spreads = 0
         for member, blob in members:

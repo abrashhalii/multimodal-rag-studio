@@ -92,6 +92,20 @@ SUMMARY_BOOK_WORDS = _int("SUMMARY_BOOK_WORDS", 500)
 SUMMARY_MAX_CHAPTER_CHARS = _int("SUMMARY_MAX_CHAPTER_CHARS", 60000)
 BUILD_SUMMARIES_ON_INGEST = _bool("BUILD_SUMMARIES_ON_INGEST", False)
 
+# ---------------------------------------------------------------- vision (comics)
+# Pages per vision request. The binding free-tier constraint is REQUESTS per
+# minute, not tokens - a downscaled page is ~1.5K tokens against a 250K/min
+# ceiling - so batching cuts request count ~4x at no practical token cost.
+VISION_BATCH_PAGES = _int("VISION_BATCH_PAGES", 4)
+VISION_IMAGE_MAX_EDGE = _int("VISION_IMAGE_MAX_EDGE", 1400)
+VISION_JPEG_QUALITY = _int("VISION_JPEG_QUALITY", 80)
+COMIC_READING_ORDER = _get("COMIC_READING_ORDER", "ltr")   # ltr | rtl
+# Comma-separated cast list. Comics rarely name a speaker in the panel, so a
+# roster turns "unknown" into a real attribution - it is corpus metadata, not
+# a licence to guess: the prompt still requires visual evidence.
+COMIC_CHARACTERS = _get("COMIC_CHARACTERS", "")
+INDEX_SFX = _bool("INDEX_SFX", False)   # keep sound effects out of embeddings
+
 # ---------------------------------------------------------------- memory
 HISTORY_TURNS = _int("HISTORY_TURNS", 6)
 REWRITE_FOLLOWUPS = _bool("REWRITE_FOLLOWUPS", True)
