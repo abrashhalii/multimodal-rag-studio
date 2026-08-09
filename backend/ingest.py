@@ -167,6 +167,14 @@ def ingest_pdf(file_path: str, book_type: str = "coding",
     for i in range(0, len(docs), batch):
         db.add_documents(docs[i:i + batch])
 
+    # BM25 is built from the collection, so a re-ingest must drop the cached
+    # index or it keeps scoring the previous corpus.
+    try:
+        import hybrid
+        hybrid.invalidate(book_type)
+    except Exception:
+        pass
+
     stats = {
         "book_type": book_type,
         "filename": idx.filename,

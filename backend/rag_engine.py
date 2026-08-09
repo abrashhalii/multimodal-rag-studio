@@ -18,6 +18,7 @@ from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 
 import config
+import hybrid
 import query_rewrite
 import rate_limit
 import router
@@ -242,14 +243,9 @@ def _answer_semantic(search_q: str, book_type: str,
     except LLMNotConfigured as e:
         return f"LLM not configured: {e}"
 
-    db = get_vector_db(book_type)
     # search_q, not question: for a follow-up these differ, and retrieval must
     # run on the REWRITTEN standalone form or the pronoun never resolves.
-    # Back-of-book index rows ("term, 194") are pointers, never answers.
-    # Front matter stays IN - the table of contents is the best chunk in the
-    # book for structural questions.
-    docs = db.similarity_search(search_q, k=k,
-                                filter={"is_index": {"$eq": False}})
+    docs = hybrid.search(book_type, search_q, k)
     if not docs:
         return ("Nothing has been indexed for this mode yet, or the book contains "
                 "no matching passages. Try uploading the PDF again.")
@@ -326,10 +322,8 @@ def _answer_chapter(route, question: str, search_q: str, book_type: str,
     except LLMNotConfigured as e:
         return f"LLM not configured: {e}"
 
-    db = get_vector_db(book_type)
-    docs = db.similarity_search(search_q, k=config.RETRIEVAL_K, filter={
-        "$and": [{"chapter_id": {"$eq": chapter["id"]}},
-                 {"is_index": {"$eq": False}}]})
+    docs = hybrid.search(book_type, search_q, config.RETRIEVAL_K,
+                         extra_filter={"chapter_id": {"$eq": chapter["id"]}})
 
     summary = summarize.chapter_summary(book_type, chapter["id"]) or "(not available)"
     pages = [p.printed_page for p in idx.chapter_pages(chapter["id"]) if p.lines]

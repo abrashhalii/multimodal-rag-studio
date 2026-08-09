@@ -45,6 +45,8 @@ class TokenBucket:
         self._lock = threading.Lock()
         self.waits = 0
         self.total_wait = 0.0
+        self.requests = 0
+        self.quota_errors = 0
 
     def acquire(self, tokens: int = 1) -> float:
         """Block until `tokens` are available. Returns seconds spent waiting."""
@@ -57,6 +59,7 @@ class TokenBucket:
                 self._last = now
                 if self._tokens >= tokens:
                     self._tokens -= tokens
+                    self.requests += 1
                     return waited
                 deficit = tokens - self._tokens
                 sleep_for = deficit / self.rate
@@ -70,8 +73,10 @@ class TokenBucket:
             "rate_per_minute": round(self.rate * 60),
             "capacity": self.capacity,
             "tokens_available": round(self._tokens, 2),
+            "requests_made": self.requests,
             "times_throttled": self.waits,
             "total_wait_seconds": round(self.total_wait, 1),
+            "quota_errors_recovered": self.quota_errors,
         }
 
 
@@ -107,6 +112,7 @@ def retry_on_quota(fn, *, attempts: int = 4, label: str = ""):
             if "RESOURCE_EXHAUSTED" not in msg and "429" not in msg:
                 raise
             last = e
+            get_bucket().quota_errors += 1
             m = _re.search(r"retry in ([0-9.]+)s", msg) or \
                 _re.search(r"'retryDelay': '(\d+)s'", msg)
             wait = float(m.group(1)) + 1 if m else (5 * (2 ** attempt))

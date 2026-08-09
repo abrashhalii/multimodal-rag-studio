@@ -10,6 +10,8 @@ from pydantic import BaseModel
 
 import config
 import llm_provider
+import rate_limit
+import summarize
 from page_index import BookIndex
 from rag_engine import process_and_store_document, query_rag_system
 
@@ -67,19 +69,45 @@ async def chat_endpoint(request: ChatRequest):
 
 @app.get("/api/status")
 async def status():
-    """Handy during the live demo - proves which book is loaded in which mode."""
+    """System state - what is loaded, how it was resolved, and how the client
+    side rate limiter is behaving. Useful live: it lets the limiter be SHOWN
+    rather than described."""
     books = {}
     for bt in config.BOOK_TYPES:
         idx = BookIndex.load(bt)
-        books[bt] = None if idx is None else {
+        if idx is None:
+            books[bt] = None
+            continue
+        tree = summarize.load_summaries(bt)
+        pages_with_text = sum(1 for p in idx.pages if p.lines)
+        books[bt] = {
             "filename": idx.filename,
             "pages": idx.page_count,
-            "label_method": idx.label_method,
+            "pages_with_text": pages_with_text,
+            "page_numbering": idx.label_method,
+            "margin_bands": idx.margin_note,
             "offset": idx.offset,
+            "offset_rule": f"pdf index = printed page + {idx.offset} (0-based)",
+            "chapters": len(idx.chapters),
+            "chapter_detection": idx.chapter_method,
+            "extraction": idx.pages[0].source if idx.pages else "unknown",
+            "summary_tree": None if not tree else {
+                "chapters_summarised": len(tree["chapters"]),
+                "book_overview_words": len(tree["book"].split()),
+            },
         }
+
     return {
         "llm": llm_provider.describe(),
         "embedding_model": config.EMBEDDING_MODEL,
+        "rate_limit": rate_limit.get_bucket().stats(),
+        "config": {
+            "declared_rpm": config.LLM_RPM,
+            "safety_factor": config.RATE_LIMIT_SAFETY,
+            "effective_rpm": max(1, int(config.LLM_RPM * config.RATE_LIMIT_SAFETY)),
+            "retrieval_k": config.RETRIEVAL_K,
+            "chunk_chars": config.CHUNK_CHARS,
+        },
         "books": books,
     }
 

@@ -65,6 +65,9 @@ MAX_PAGES = _int("MAX_PAGES", 0)                # 0 = no limit; useful for smoke
 
 # ---------------------------------------------------------------- retrieval
 RETRIEVAL_K = _int("RETRIEVAL_K", 12)
+# Fuse BM25 with dense retrieval. Dense-only measured hit@5 = 0.58 on verbatim
+# phrase recall, with failures concentrated in the novel's homogeneous prose.
+HYBRID_RETRIEVAL = _bool("HYBRID_RETRIEVAL", True)
 CANDIDATE_K = _int("CANDIDATE_K", 40)           # pre-rerank pool (used from Day 4)
 GLOBAL_K = _int("GLOBAL_K", 120)
 
