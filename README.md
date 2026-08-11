@@ -1,5 +1,21 @@
 # Multimodal RAG Studio
 
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=flat-square&logo=fastapi&logoColor=white)
+![LangChain](https://img.shields.io/badge/LangChain-1C3C3C?style=flat-square&logo=langchain&logoColor=white)
+![ChromaDB](https://img.shields.io/badge/ChromaDB-FF6B6B?style=flat-square)
+![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
+![Ollama](https://img.shields.io/badge/Ollama-000000?style=flat-square&logo=ollama&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/BGE%20Embeddings-FFD21E?style=flat-square&logo=huggingface&logoColor=black)
+![BM25](https://img.shields.io/badge/BM25-4B8BBE?style=flat-square)
+![PyMuPDF](https://img.shields.io/badge/PyMuPDF-CB3837?style=flat-square)
+![License](https://img.shields.io/badge/License-MIT-2F4A6B?style=flat-square)
+
+![hit@12](https://img.shields.io/badge/retrieval%20hit%4012-43%2F45-2E7D32?style=flat-square)
+![Pages](https://img.shields.io/badge/pages%20indexed-910-2F4A6B?style=flat-square)
+![Vision](https://img.shields.io/badge/vision%20extracted-3%2C121%20items-6A4C93?style=flat-square)
+![429s](https://img.shields.io/badge/quota%20rejections-0-2E7D32?style=flat-square)
+
 Page-precise retrieval over a coding textbook, a Victorian novel, and a 258-page
 comic volume that contains no text layer at all.
 
@@ -290,6 +306,22 @@ counter-example in the prompt.
 full extracted text of the source material.
 
 ---
+
+## Documentation
+
+Design documents are in [`docs/`](docs/):
+
+| Document | Covers |
+|---|---|
+| [Product Requirements](docs/01_Product_Requirements_Document.md) | Problem, goals, functional requirements, success criteria |
+| [Technical Requirements](docs/02_Technical_Requirements_Document.md) | Stack, architecture, key technical decisions, testing |
+| [Application Flow](docs/03_Application_Flow.md) | Ingestion and query flows, route dispatch, failure handling |
+| [UI / UX Brief](docs/04_UI_UX_Brief.md) | Interaction model and observability surface |
+| [Backend Schema](docs/05_Backend_Schema.md) | Data structures, storage, caches, API contracts |
+| [Implementation Plan](docs/06_Implementation_Plan.md) | Sequencing, verification gates, what measurement changed |
+
+---
+
 
 ## Credits
 
