@@ -313,15 +313,14 @@ Design documents are in [`docs/`](docs/):
 
 | Document | Covers |
 |---|---|
-| [Product Requirements](docs/01_Product_Requirements_Document.md) | Problem, goals, functional requirements, success criteria |
-| [Technical Requirements](docs/02_Technical_Requirements_Document.md) | Stack, architecture, key technical decisions, testing |
-| [Application Flow](docs/03_Application_Flow.md) | Ingestion and query flows, route dispatch, failure handling |
-| [UI / UX Brief](docs/04_UI_UX_Brief.md) | Interaction model and observability surface |
-| [Backend Schema](docs/05_Backend_Schema.md) | Data structures, storage, caches, API contracts |
-| [Implementation Plan](docs/06_Implementation_Plan.md) | Sequencing, verification gates, what measurement changed |
+| [Product Requirement Document](docs/Product%20Requirement%20Document.md) | Problem, goals, functional requirements, success criteria |
+| [Technical Requirement Document](docs/Technical%20Requirement%20Document.md) | Stack, architecture, key technical decisions, testing |
+| [Application Flow](docs/Application%20Flow.md) | Ingestion and query flows, route dispatch, failure handling |
+| [UI UX Brief](docs/UI%20UX%20Brief.md) | Interaction model and observability surface |
+| [Backend Schema](docs/Backend%20Schema.md) | Data structures, storage, caches, API contracts |
+| [Implementation Plan](docs/Implementation%20Plan.md) | Sequencing, verification gates, what measurement changed |
 
 ---
-
 
 ## Credits
 
