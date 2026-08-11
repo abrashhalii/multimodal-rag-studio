@@ -57,12 +57,13 @@ body {
 }
 
 .logo {
-    width: 80px;
-    height: 80px;
+    width: 100%;
+    max-width: 380px;
+    height: auto;
     object-fit: contain;
-    margin-bottom: 10px;
+    margin-bottom: 0;
     box-shadow: none;
-    filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.3));
+    filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.4));
 }
 
 .logo-container h2 {
@@ -74,10 +75,17 @@ body {
     -webkit-text-fill-color: transparent;
 }
 
+.logo-container {
+    text-align: center;
+    margin-left: -18px;
+    margin-right: -18px;
+    margin-bottom: -14px;
+}
+
 .subtitle {
     color: var(--text-muted);
     font-size: 0.85rem;
-    margin-top: 5px;
+    margin-top: -4px;
 }
 
 .upload-section h3 {
