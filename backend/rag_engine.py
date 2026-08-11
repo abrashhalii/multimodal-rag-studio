@@ -41,6 +41,18 @@ Only say "I cannot find the answer to this in the book." when the context contai
 nothing relevant to the question at all. If it is partially relevant, answer with what
 is there and say plainly what is missing.
 
+WHEN ASKED TO WRITE OR IMPLEMENT CODE, WRITE IT.
+The book supplies the problem statement; the implementation is yours to produce.
+Cite the printed page where the problem is defined, then give a complete, working
+solution in a fenced code block. Never refuse a coding request on the grounds that
+the code is not in the context - it is the SPECIFICATION that must come from the
+context, not the solution.
+
+When asked which problem is "best", "worst" or "most useless", commit to a choice.
+Name one, say where it is, and justify it from what the book actually contains.
+An evaluative question deserves an answer with reasoning, not a list of candidates.
+
+
 Every context block begins with a location header in this form:
 [Source: PDF Viewer Page X | Printed Page Y | Lines A-B | book]
 When you state a fact, cite its Printed Page. "Printed Page" is the number printed on
@@ -83,6 +95,18 @@ Cite chapters by name and give their printed page range when you refer to them. 
 invent details that are not in the summaries; if the question needs a specific passage
 rather than an overview, say so and suggest what to ask instead.
 
+WHEN ASKED TO WRITE OR IMPLEMENT CODE, WRITE IT.
+The book supplies the problem statement; the implementation is yours to produce.
+Cite the printed page where the problem is defined, then give a complete, working
+solution in a fenced code block. Never refuse a coding request on the grounds that
+the code is not in the context - it is the SPECIFICATION that must come from the
+context, not the solution.
+
+When asked which problem is "best", "worst" or "most useless", commit to a choice.
+Name one, say where it is, and justify it from what the book actually contains.
+An evaluative question deserves an answer with reasoning, not a list of candidates.
+
+
 {history_block}
 --- WHOLE-BOOK OVERVIEW ---
 {book_summary}
@@ -108,6 +132,25 @@ verbatim passages for specifics and the summary for shape and scope. Cite printe
 --- PASSAGES FROM THIS CHAPTER ---
 {context}
 --- END ---
+
+Question: {question}
+
+Answer:"""
+
+
+PAGES_TEMPLATE = """You are a precise Interactive Study Tutor.
+
+Below is the complete, verbatim text of {count} specific pages of the book, each one
+marked with its printed page number. Lines are numbered exactly as they appear.
+
+Answer the reader's question using only these pages. Cover EVERY page given - if the
+reader asked about several pages, say something about each of them, and if one has no
+relevant content, say so rather than skipping it silently. Cite printed pages.
+
+{history_block}
+--- BEGIN PAGES ---
+{pages_text}
+--- END PAGES ---
 
 Question: {question}
 
@@ -155,6 +198,8 @@ def query_rag_system(user_message: str,
         return _answer_page_line(route, book_type)
     if route.kind == "page":
         return _answer_page(route, user_message, book_type, history)
+    if route.kind == "pages":
+        return _answer_pages(route, user_message, book_type, history)
     if route.kind == "memory":
         return _answer_memory(user_message, history)
     # Follow-ups are rewritten into standalone questions BEFORE retrieval.
@@ -220,6 +265,62 @@ def _answer_page(route, question: str, book_type: str,
         "question": question,
         "history_block": _history_block(history),
     })
+
+
+def _answer_pages(route, question: str, book_type: str,
+                  history: Optional[List[dict]]) -> str:
+    """Several pages at once - a range like 100-110, or a list like 110, 64, 171.
+
+    Deterministic lookup again: the pages are fetched by number, not searched for,
+    so no page can be silently dropped. The earlier single-page route captured
+    only the first number in the question and quietly ignored the rest, which
+    produced an answer that looked complete and was not.
+    """
+    idx = BookIndex.load(book_type)
+    if idx is None:
+        return "No book has been indexed for this mode yet. Please upload a PDF first."
+
+    found, missing = [], []
+    for p in route.pages:
+        rec = idx.by_printed(p)
+        if rec is None:
+            missing.append(str(p))
+        else:
+            found.append(rec)
+
+    if not found:
+        return (f"None of those pages are in this book "
+                f"({idx.page_count} pages indexed).")
+
+    blocks = []
+    for rec in found:
+        body = "\n".join(f"{i:>3} | {t}" for i, t in enumerate(rec.lines, 1))
+        blocks.append(f"=== PRINTED PAGE {rec.printed_page} ===\n"
+                      f"{body if body.strip() else '(this page has no text)'}")
+    pages_text = "\n\n".join(blocks)
+
+    try:
+        llm = get_llm()
+    except LLMNotConfigured as e:
+        return f"LLM not configured: {e}"
+
+    if config.DEBUG_LOG:
+        got = [r.printed_page for r in found]
+        print(f"[pages] loaded {len(found)}: {got[:12]}"
+              f"{' missing ' + str(missing) if missing else ''}")
+
+    chain = ChatPromptTemplate.from_template(PAGES_TEMPLATE) | llm | StrOutputParser()
+    rate_limit.throttle("multi-page answer")
+    answer = chain.invoke({
+        "count": len(found),
+        "pages_text": pages_text,
+        "question": question,
+        "history_block": _history_block(history),
+    })
+    if missing:
+        answer += (f"\n\n*(Not found in this book: page"
+                   f"{'s' if len(missing) > 1 else ''} {', '.join(missing)}.)*")
+    return answer
 
 
 def _answer_memory(question: str, history: Optional[List[dict]]) -> str:

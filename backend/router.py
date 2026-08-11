@@ -19,7 +19,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 # ---------------------------------------------------------------- patterns
-_PG = r"(?:page|pg\.?|p\.)\s*"
+# Plural matters ("pages 12-14"), and so does the optional filler word:
+# readers write "page number 120" and "page no. 34" as often as "page 120".
+_PG = r"(?:pages?|pgs?\.?|pp?\.)\s*(?:numbers?|nos?\.?|num|#)?\s*"
 _LN = r"(?:line|ln\.?|l\.)\s*"
 _NUM = r"(\d{1,4})"
 
@@ -32,6 +34,15 @@ PAGE_PATTERNS = [
     re.compile(_PG + _NUM, re.I),
     re.compile(r"\bon\s+page\s+" + _NUM, re.I),
 ]
+
+# "pages 100 to 110", "page 100-110", "from page 100 through 110"
+PAGE_RANGE_RE = re.compile(
+    _PG + _NUM + r"\s*(?:to|through|until|\-|\u2013|\u2014)\s*(?:page\s*)?" + _NUM,
+    re.I)
+
+# "page 110, 64, 171" / "pages 110 and 64" - a list, not a range
+PAGE_LIST_RE = re.compile(
+    _PG + r"((?:\d{1,4})(?:\s*(?:,|and|&)\s*\d{1,4})+)", re.I)
 
 GLOBAL_MARKERS = [
     r"\bentire book\b", r"\bwhole book\b", r"\bthe book\b.*\bsummar",
@@ -46,6 +57,10 @@ GLOBAL_RE = [re.compile(p, re.I) for p in GLOBAL_MARKERS]
 CHAPTER_RE = re.compile(
     r"\bchapter\s+([0-9]{1,3}|[ivxlcdm]{1,8})\b", re.I)
 
+# Guard rail: a huge span would overflow the context window, so past this the
+# question is treated as a broad one rather than a literal page dump.
+MAX_PAGE_SPAN = 30
+
 MEMORY_RE = re.compile(
     r"\b(what did i (just )?(ask|say)|my (last|previous) (question|message)|"
     r"repeat (that|my question)|what was my)\b", re.I)
@@ -53,15 +68,18 @@ MEMORY_RE = re.compile(
 
 @dataclass
 class Route:
-    kind: str                      # page_line | page | chapter | global | memory | semantic
+    kind: str                      # page_line | page | pages | chapter | global | memory | semantic
     page: Optional[int] = None
+    pages: Optional[list] = None   # several pages, for a range or an explicit list
     line: Optional[int] = None
     chapter: Optional[str] = None
     reason: str = ""
 
     def __str__(self):
         bits = [self.kind]
-        if self.page is not None:
+        if self.pages:
+            bits.append(f"pages={self.pages[0]}..{self.pages[-1]} ({len(self.pages)})")
+        elif self.page is not None:
             bits.append(f"page={self.page}")
         if self.line is not None:
             bits.append(f"line={self.line}")
@@ -84,7 +102,26 @@ def classify(question: str) -> Route:
             return Route("page_line", page=page, line=line,
                          reason="explicit page and line reference")
 
-    # 2. page only -> load that page, let the LLM read it
+    # 2a. an explicit RANGE of pages
+    m = PAGE_RANGE_RE.search(q)
+    if m:
+        a, b = int(m.group(1)), int(m.group(2))
+        if a > b:
+            a, b = b, a
+        if b - a <= MAX_PAGE_SPAN:
+            return Route("pages", pages=list(range(a, b + 1)),
+                         reason=f"page range {a}-{b}")
+
+    # 2b. an explicit LIST of pages
+    m = PAGE_LIST_RE.search(q)
+    if m:
+        nums = [int(x) for x in re.findall(r"\d{1,4}", m.group(1))]
+        nums = sorted(dict.fromkeys(nums))
+        if 2 <= len(nums) <= MAX_PAGE_SPAN:
+            return Route("pages", pages=nums,
+                         reason=f"explicit list of {len(nums)} pages")
+
+    # 2c. page only -> load that page, let the LLM read it
     for pat in PAGE_PATTERNS:
         m = pat.search(q)
         if m:
@@ -116,6 +153,11 @@ if __name__ == "__main__":
         "what is on page 34 line 5",
         "read me line 12 of page 200",
         "What happened on page 23?",
+        "give summary from page 100 to 110",
+        "what happened in page 110,64,171",
+        "summarise pages 12-14",
+        "the problem from page number 120",
+        "what is on page no. 47",
         "p. 88 please",
         "Summarize the entire book",
         "What is the best problem in the book?",
