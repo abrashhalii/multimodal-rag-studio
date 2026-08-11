@@ -67,8 +67,8 @@ body {
 
 .logo-container h2 {
     font-weight: 800;
-    letter-spacing: 2px;
-    font-size: 1.4rem;
+    letter-spacing: 1.5px;
+    font-size: 1.15rem;
     background: linear-gradient(to right, #60a5fa, #a78bfa);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;

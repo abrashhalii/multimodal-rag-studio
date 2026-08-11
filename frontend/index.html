@@ -1,44 +1,48 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Zenvyrolabs - Interactive Study Tutor</title>
+    <title>Multimodal RAG Studio</title>
     <link rel="stylesheet" href="style.css">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Highlight.js for code styling -->
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
+    <link rel="stylesheet"
+        href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/atom-one-dark.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
     <!-- Marked.js for Markdown parsing -->
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar for Document Upload -->
         <aside class="sidebar">
             <div class="logo-container">
-                <img src="assets/LOGO.png" alt="Zenvyrolabs Logo" class="logo">
-                <h2>ZENVYROLABS</h2>
+                <img src="assets/logo.png" alt="Multimodal RAG Studio" class="logo">
+                <h2>MULTIMODAL RAG</h2>
+                <p class="subtitle">Studio</p>
             </div>
 
-        <div class="mode-selector">
-            <h3><i class="fa-solid fa-layer-group"></i> Assistant Mode</h3>
-            <div class="mode-btn active" data-mode="coding" onclick="setMode('coding')">
-                <i class="fa-solid fa-code"></i> Coding Textbook
+            <div class="mode-selector">
+                <h3><i class="fa-solid fa-layer-group"></i> Assistant Mode</h3>
+                <div class="mode-btn active" data-mode="coding" onclick="setMode('coding')">
+                    <i class="fa-solid fa-code"></i> Coding Textbook
+                </div>
+                <div class="mode-btn" data-mode="novel" onclick="setMode('novel')">
+                    <i class="fa-solid fa-book"></i> Novel
+                </div>
+                <div class="mode-btn" data-mode="manga" onclick="setMode('manga')">
+                    <i class="fa-solid fa-image"></i> Manga / Comic
+                </div>
             </div>
-            <div class="mode-btn" data-mode="novel" onclick="setMode('novel')">
-                <i class="fa-solid fa-book"></i> Novel
-            </div>
-            <div class="mode-btn" data-mode="manga" onclick="setMode('manga')">
-                <i class="fa-solid fa-image"></i> Manga / Comic
-            </div>
-        </div>
 
-        <div class="upload-section">
-            <h3><i class="fa-solid fa-book-open"></i> Knowledge Base</h3>
-            <p>Upload a PDF document to train the AI instantly.</p>
-                
+            <div class="upload-section">
+                <h3><i class="fa-solid fa-book-open"></i> Knowledge Base</h3>
+                <p>Upload a PDF document to train the AI instantly.</p>
+
                 <div class="file-upload-wrapper" id="drop-zone">
                     <input type="file" id="pdf-upload" accept=".pdf" hidden>
                     <label for="pdf-upload" class="upload-btn">
@@ -46,12 +50,12 @@
                         <span>Select PDF Document</span>
                     </label>
                 </div>
-                
+
                 <div id="upload-status" class="status-msg hidden">
                     <div class="loader"></div>
                     <span>Processing document...</span>
                 </div>
-                
+
                 <div id="upload-success" class="success-msg hidden">
                     <i class="fa-solid fa-circle-check"></i>
                     <span id="success-text">Document embedded successfully!</span>
@@ -72,7 +76,7 @@
         <main class="chat-area">
             <header class="chat-header">
                 <div class="header-info">
-                    <h1>RAG Assistant</h1>
+                    <h1>Multimodal RAG Studio</h1>
                     <span class="status-badge"><span class="dot"></span> Online</span>
                 </div>
             </header>
@@ -89,7 +93,8 @@
             <div class="input-area">
                 <div class="input-wrapper">
                     <textarea id="chat-input" placeholder="Ask a question about the document..." rows="1"></textarea>
-                    <button id="send-btn" class="send-btn" title="Send message" aria-label="Send message"><i class="fa-solid fa-paper-plane"></i></button>
+                    <button id="send-btn" class="send-btn" title="Send message" aria-label="Send message"><i
+                            class="fa-solid fa-paper-plane"></i></button>
                 </div>
             </div>
         </main>
@@ -97,4 +102,5 @@
 
     <script src="app.js?v=2"></script>
 </body>
+
 </html>
