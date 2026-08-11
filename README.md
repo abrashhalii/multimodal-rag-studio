@@ -313,6 +313,7 @@ Design documents are in [`docs/`](docs/):
 
 | Document | Covers |
 |---|---|
+| [Architecture](docs/ARCHITECTURE.md) | How it works and why — routing, extraction, retrieval, quota handling |
 | [Product Requirement Document](docs/Product%20Requirement%20Document.md) | Problem, goals, functional requirements, success criteria |
 | [Technical Requirement Document](docs/Technical%20Requirement%20Document.md) | Stack, architecture, key technical decisions, testing |
 | [Application Flow](docs/Application%20Flow.md) | Ingestion and query flows, route dispatch, failure handling |
