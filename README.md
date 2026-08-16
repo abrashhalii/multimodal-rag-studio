@@ -51,6 +51,8 @@ identical, every feature works on every book with no special casing — `page 13
 line 1` runs the same code whether the line came from typeset prose or from a
 speech balloon.
 
+🎥 [Watch the demo](https://drive.google.com/file/d/1xk0c3PEnN4_MM6QM8ShQluee782B8pIa/view?usp=sharing)
+
 ---
 
 ## Measured, not asserted
